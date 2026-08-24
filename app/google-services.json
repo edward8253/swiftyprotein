@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "756933615718",
+    "project_id": "swiftyprotein-cc7fc",
+    "storage_bucket": "swiftyprotein-cc7fc.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:756933615718:android:73d883362c39e2002e0da7",
+        "android_client_info": {
+          "package_name": "com.swiftyprotein"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAihOCXlv8ZdqaVKk8QI_HjW-nQlADCZhU"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
