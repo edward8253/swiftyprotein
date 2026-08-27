@@ -98,13 +98,19 @@ fun LoginScreen(navController: NavHostController) {
 
         Button(
             onClick = {
-                showBiometricPrompt(context as FragmentActivity) { success ->
-                    if (success) {
-                        navController.navigate("ligand_list") {
-                            popUpTo("login") { inclusive = true }
+                if (isEmulator()) {
+                    navController.navigate("ligand_list") {
+                        popUpTo("login") { inclusive = true }
+                    }
+                } else {
+                    showBiometricPrompt(context as FragmentActivity) { success ->
+                        if (success) {
+                            navController.navigate("ligand_list") {
+                                popUpTo("login") { inclusive = true }
+                            }
+                        } else {
+                            Toast.makeText(context, "Biometric authentication failed", Toast.LENGTH_SHORT).show()
                         }
-                    } else {
-                        Toast.makeText(context, "Biometric authentication failed", Toast.LENGTH_SHORT).show()
                     }
                 }
             },
@@ -121,6 +127,25 @@ fun LoginScreen(navController: NavHostController) {
             modifier = Modifier.padding(16.dp)
         )
     }
+}
+
+fun isEmulator(): Boolean {
+    return (android.os.Build.BRAND.startsWith("generic") && android.os.Build.DEVICE.startsWith("generic"))
+            || android.os.Build.FINGERPRINT.startsWith("generic")
+            || android.os.Build.FINGERPRINT.startsWith("unknown")
+            || android.os.Build.HARDWARE.contains("goldfish")
+            || android.os.Build.HARDWARE.contains("ranchu")
+            || android.os.Build.MODEL.contains("google_sdk")
+            || android.os.Build.MODEL.contains("Emulator")
+            || android.os.Build.MODEL.contains("Android SDK built for x86")
+            || android.os.Build.MANUFACTURER.contains("Genymotion")
+            || android.os.Build.PRODUCT.contains("sdk_google")
+            || android.os.Build.PRODUCT.contains("google_sdk")
+            || android.os.Build.PRODUCT.contains("sdk")
+            || android.os.Build.PRODUCT.contains("sdk_x86")
+            || android.os.Build.PRODUCT.contains("vbox86p")
+            || android.os.Build.PRODUCT.contains("emulator")
+            || android.os.Build.PRODUCT.contains("simulator")
 }
 
 @Preview(showBackground = true)

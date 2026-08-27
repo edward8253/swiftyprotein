@@ -1,16 +1,19 @@
 package com.swiftyprotein.ui.screens
 
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.*
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Hub
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.rememberNavController
-import coil.compose.AsyncImage
 import kotlinx.coroutines.delay
 
 @Composable
@@ -26,12 +29,20 @@ fun SplashScreen(navController: NavHostController) {
         modifier = Modifier.fillMaxSize(),
         contentAlignment = Alignment.Center
     ) {
-        AsyncImage(
-            model = "https://upload.wikimedia.org/wikipedia/commons/e/e1/Fulleren.png",
-            contentDescription = "Molecule",
-            modifier = Modifier.fillMaxSize(0.7f),
-            contentScale = ContentScale.Fit
-        )
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Icon(
+                imageVector = Icons.Default.Hub,
+                contentDescription = "Molecule Logo",
+                modifier = Modifier.size(120.dp),
+                tint = MaterialTheme.colorScheme.primary
+            )
+            Spacer(modifier = Modifier.height(16.dp))
+            Text(
+                text = "SwiftyProtein",
+                style = MaterialTheme.typography.headlineLarge,
+                color = MaterialTheme.colorScheme.primary
+            )
+        }
     }
 }
 

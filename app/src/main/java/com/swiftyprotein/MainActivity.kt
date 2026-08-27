@@ -9,6 +9,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.ProcessLifecycleOwner
 import androidx.navigation.NavHostController
+import com.google.firebase.auth.FirebaseAuth
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
@@ -22,19 +23,28 @@ class MainActivity : FragmentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
 
-        // Observe lifecycle to force login on foreground
+        // Observe lifecycle to force login on focus loss
         ProcessLifecycleOwner.get().lifecycle.addObserver(LifecycleEventObserver { _, event ->
-            if (event == Lifecycle.Event.ON_START) {
-                if (::navController.isInitialized) {
-                    val currentRoute = navController.currentDestination?.route
-                    // If we are not on splash or login, we force the user to login again
-                    if (currentRoute != null && currentRoute != "splash" && currentRoute != "login") {
-                        navController.navigate("login") {
-                            // Clear backstack to prevent going back to protected screens
-                            popUpTo(0)
+            when (event) {
+                Lifecycle.Event.ON_STOP -> {
+                    // App went to background (closed, switched app, or phone blocked)
+                    // We sign out from Firebase to ensure the session is cleared
+                    FirebaseAuth.getInstance().signOut()
+                }
+                Lifecycle.Event.ON_START -> {
+                    // App coming back to foreground
+                    if (::navController.isInitialized) {
+                        val currentRoute = navController.currentDestination?.route
+                        // If we were on a protected screen, force return to login
+                        if (currentRoute != null && currentRoute != "splash" && currentRoute != "login") {
+                            navController.navigate("login") {
+                                // Clear backstack to prevent going back
+                                popUpTo(0)
+                            }
                         }
                     }
                 }
+                else -> {}
             }
         })
 
@@ -53,9 +63,9 @@ fun AppNavigation(navController: NavHostController) {
         composable("splash") { SplashScreen(navController) }
         composable("login") { LoginScreen(navController) }
         composable("ligand_list") { LigandListScreen(navController) }
-        composable("confirmation/{ligand}") { backStackEntry ->
+        composable("ligand_detail/{ligand}") { backStackEntry ->
             val ligand = backStackEntry.arguments?.getString("ligand") ?: ""
-            ConfirmationScreen(navController, ligand)
+            LigandDetailScreen(navController, ligand)
         }
     }
 }

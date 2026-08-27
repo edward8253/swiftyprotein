@@ -65,7 +65,7 @@ fun LigandListScreen(navController: NavHostController) {
                                     val success = downloadCif(context, ligand)
                                     isDownloading = false
                                     if (success) {
-                                        navController.navigate("confirmation/$ligand")
+                                        navController.navigate("ligand_detail/$ligand")
                                     }
                                 }
                             }
@@ -103,8 +103,11 @@ suspend fun downloadCif(context: Context, ligand: String): Boolean {
             connection.connect()
 
             if (connection.responseCode == HttpURLConnection.HTTP_OK) {
-                // For this example, we just read the content to simulate a download
-                connection.inputStream.bufferedReader().use { it.readText() }
+                val content = connection.inputStream.bufferedReader().use { it.readText() }
+                // Store the content in a file for the detail screen
+                context.openFileOutput("$ligand.cif", Context.MODE_PRIVATE).use {
+                    it.write(content.toByteArray())
+                }
                 true
             } else {
                 withContext(Dispatchers.Main) {
