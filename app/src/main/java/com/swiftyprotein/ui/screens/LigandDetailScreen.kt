@@ -99,9 +99,9 @@ fun LigandDetailScreen(navController: NavHostController, ligand: String) {
                         detectTransformGestures { _, pan, zoom, _ ->
                             renderer.rotationY += pan.x / 5f
                             renderer.rotationX += pan.y / 5f
-                            renderer.zoom *= zoom
-                            if (renderer.zoom > -2f) renderer.zoom = -2f
-                            if (renderer.zoom < -100f) renderer.zoom = -100f
+                            renderer.zoom /= zoom
+                            if (renderer.zoom < 2f) renderer.zoom = 2f
+                            if (renderer.zoom > 200f) renderer.zoom = 200f
                         }
                     }
             )

@@ -25,9 +25,13 @@ class MoleculeGlRenderer(val context: Context) : GLSurfaceView.Renderer {
     // Gesture state
     var rotationX = 0f
     var rotationY = 0f
-    var zoom = -20f
+    var zoom = 20f
     var panX = 0f
     var panY = 0f
+
+    private var centerX = 0f
+    private var centerY = 0f
+    private var centerZ = 0f
 
     private var mProgram = 0
     private var mPositionHandle = 0
@@ -48,7 +52,23 @@ class MoleculeGlRenderer(val context: Context) : GLSurfaceView.Renderer {
     private var cylinderIndexCount = 0
 
     var atoms = listOf<Atom>()
+        set(value) {
+            field = value
+            calculateCenter()
+        }
     var bonds = listOf<Bond>()
+
+    private fun calculateCenter() {
+        if (atoms.isEmpty()) {
+            centerX = 0f
+            centerY = 0f
+            centerZ = 0f
+            return
+        }
+        centerX = atoms.map { it.x }.average().toFloat()
+        centerY = atoms.map { it.y }.average().toFloat()
+        centerZ = atoms.map { it.z }.average().toFloat()
+    }
     
     // Callback for screenshot
     var screenshotCallback: ((android.graphics.Bitmap) -> Unit)? = null
@@ -114,7 +134,7 @@ class MoleculeGlRenderer(val context: Context) : GLSurfaceView.Renderer {
     override fun onSurfaceChanged(gl: GL10?, width: Int, height: Int) {
         GLES20.glViewport(0, 0, width, height)
         val ratio: Float = width.toFloat() / height.toFloat()
-        Matrix.frustumM(mProjectionMatrix, 0, -ratio, ratio, -1f, 1f, 3f, 100f)
+        Matrix.frustumM(mProjectionMatrix, 0, -ratio, ratio, -1f, 1f, 1f, 1000f)
     }
 
     override fun onDrawFrame(gl: GL10?) {
@@ -148,7 +168,7 @@ class MoleculeGlRenderer(val context: Context) : GLSurfaceView.Renderer {
 
     private fun drawAtom(atom: Atom) {
         Matrix.setIdentityM(mModelMatrix, 0)
-        Matrix.translateM(mModelMatrix, 0, atom.x, atom.y, atom.z)
+        Matrix.translateM(mModelMatrix, 0, atom.x - centerX, atom.y - centerY, atom.z - centerZ)
         Matrix.scaleM(mModelMatrix, 0, 0.4f, 0.4f, 0.4f) // Adjust sphere size
 
         val mvMatrix = FloatArray(16)
@@ -180,7 +200,7 @@ class MoleculeGlRenderer(val context: Context) : GLSurfaceView.Renderer {
         val distance = sqrt(dx * dx + dy * dy + dz * dz)
 
         Matrix.setIdentityM(mModelMatrix, 0)
-        Matrix.translateM(mModelMatrix, 0, a1.x, a1.y, a1.z)
+        Matrix.translateM(mModelMatrix, 0, a1.x - centerX, a1.y - centerY, a1.z - centerZ)
 
         // Rotation to align with (dx, dy, dz)
         // Cylinder starts at (0,0,0) towards (0,0,1)
@@ -367,7 +387,7 @@ class MoleculeGlRenderer(val context: Context) : GLSurfaceView.Renderer {
         var minDistance = Float.MAX_VALUE
         
         atoms.forEach { atom ->
-            val toAtom = floatArrayOf(atom.x - nearWorld[0], atom.y - nearWorld[1], atom.z - nearWorld[2])
+            val toAtom = floatArrayOf(atom.x - centerX - nearWorld[0], atom.y - centerY - nearWorld[1], atom.z - centerZ - nearWorld[2])
             val projection = toAtom[0] * rayDir[0] + toAtom[1] * rayDir[1] + toAtom[2] * rayDir[2]
             
             if (projection > 0) {

@@ -98,21 +98,21 @@ fun LoginScreen(navController: NavHostController) {
 
         Button(
             onClick = {
-                if (isEmulator()) {
-                    navController.navigate("ligand_list") {
-                        popUpTo("login") { inclusive = true }
-                    }
-                } else {
-                    showBiometricPrompt(context as FragmentActivity) { success ->
-                        if (success) {
-                            navController.navigate("ligand_list") {
-                                popUpTo("login") { inclusive = true }
-                            }
-                        } else {
-                            Toast.makeText(context, "Biometric authentication failed", Toast.LENGTH_SHORT).show()
-                        }
-                    }
-                }
+	            navController.navigate("ligand_list") {
+		            popUpTo("login") { inclusive = true }
+	            }
+//	            if (isEmulator()) {
+//                } else {
+//                    showBiometricPrompt(context as FragmentActivity) { success ->
+//                        if (success) {
+//                            navController.navigate("ligand_list") {
+//                                popUpTo("login") { inclusive = true }
+//                            }
+//                        } else {
+//                            Toast.makeText(context, "Biometric authentication failed", Toast.LENGTH_SHORT).show()
+//                        }
+//                    }
+//                }
             },
             modifier = Modifier.fillMaxWidth()
         ) {
