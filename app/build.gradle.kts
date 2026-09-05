@@ -19,6 +19,9 @@ android {
 	}
 
 	buildTypes {
+		debug {
+			isDebuggable = true
+		}
 		release {
 			optimization {
 				enable = false
@@ -31,6 +34,7 @@ android {
 	}
 	buildFeatures {
 		compose = true
+		buildConfig = true
 	}
 }
 
@@ -49,6 +53,7 @@ dependencies {
 	implementation(libs.androidx.lifecycle.process)
 	implementation(libs.firebase.auth)
 	implementation(libs.coil.compose)
+	implementation(libs.coil.gif)
 	testImplementation(libs.junit)
 	androidTestImplementation(platform(libs.androidx.compose.bom))
 	androidTestImplementation(libs.androidx.compose.ui.test.junit4)

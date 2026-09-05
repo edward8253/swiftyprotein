@@ -33,6 +33,14 @@ class MoleculeGlRenderer(val context: Context) : GLSurfaceView.Renderer {
     private var centerY = 0f
     private var centerZ = 0f
 
+    fun resetState() {
+        rotationX = 0f
+        rotationY = 0f
+        panX = 0f
+        panY = 0f
+        zoom = 20f
+    }
+
     private var mProgram = 0
     private var mPositionHandle = 0
     private var mNormalHandle = 0
@@ -63,11 +71,38 @@ class MoleculeGlRenderer(val context: Context) : GLSurfaceView.Renderer {
             centerX = 0f
             centerY = 0f
             centerZ = 0f
+            zoom = 20f
             return
         }
-        centerX = atoms.map { it.x }.average().toFloat()
-        centerY = atoms.map { it.y }.average().toFloat()
-        centerZ = atoms.map { it.z }.average().toFloat()
+        
+        var minX = Float.MAX_VALUE
+        var maxX = Float.MIN_VALUE
+        var minY = Float.MAX_VALUE
+        var maxY = Float.MIN_VALUE
+        var minZ = Float.MAX_VALUE
+        var maxZ = Float.MIN_VALUE
+
+        atoms.forEach {
+            if (it.x < minX) minX = it.x
+            if (it.x > maxX) maxX = it.x
+            if (it.y < minY) minY = it.y
+            if (it.y > maxY) maxY = it.y
+            if (it.z < minZ) minZ = it.z
+            if (it.z > maxZ) maxZ = it.z
+        }
+
+        centerX = (minX + maxX) / 2f
+        centerY = (minY + maxY) / 2f
+        centerZ = (minZ + maxZ) / 2f
+
+        val deltaX = maxX - minX
+        val deltaY = maxY - minY
+        val deltaZ = maxZ - minZ
+        val maxDim = max(deltaX, max(deltaY, deltaZ))
+        
+        // Adjust zoom based on molecule size. 
+        // frustum is -1..1, so we want the molecule to fit comfortably.
+        zoom = max(5f, maxDim * 2f) 
     }
     
     // Callback for screenshot
@@ -191,8 +226,8 @@ class MoleculeGlRenderer(val context: Context) : GLSurfaceView.Renderer {
     }
 
     private fun drawBond(bond: Bond) {
-        val a1 = atoms.find { it.id == bond.atom1Id } ?: return
-        val a2 = atoms.find { it.id == bond.atom2Id } ?: return
+        val a1 = atoms.getOrNull(bond.atom1Id) ?: return
+        val a2 = atoms.getOrNull(bond.atom2Id) ?: return
 
         val dx = a2.x - a1.x
         val dy = a2.y - a1.y

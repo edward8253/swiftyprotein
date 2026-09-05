@@ -1,17 +1,23 @@
 package com.swiftyprotein.ui.screens
 
+import android.content.Context
 import android.widget.Toast
+import androidx.biometric.BiometricManager
 import androidx.biometric.BiometricPrompt
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.FragmentActivity
 import androidx.navigation.NavHostController
@@ -23,17 +29,34 @@ fun LoginScreen(navController: NavHostController) {
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     val context = LocalContext.current
+    val focusManager = LocalFocusManager.current
     val isPreview = LocalInspectionMode.current
     val auth = if (isPreview) null else FirebaseAuth.getInstance()
+
+    // Automatically deselect text fields / hide soft keyboard when entering screen
+    LaunchedEffect(Unit) {
+        focusManager.clearFocus()
+    }
+
+    // rememberSaveable is used to preserve the result across recreation of the activity
+	// for special events, like device display rotation
+    val isBiometricAvailable = rememberSaveable {
+        if (isPreview) false else checkIfBiometricsAvailable(context)
+    }
 
     Column(
         modifier = Modifier
             .fillMaxSize()
+            .pointerInput(Unit) {
+                detectTapGestures(onTap = {
+                    focusManager.clearFocus()
+                })
+            }
             .padding(16.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
-        Text(text = "SwiftyProtein Login", style = MaterialTheme.typography.headlineMedium)
+        Text(text = "Login", style = MaterialTheme.typography.headlineMedium)
         Spacer(modifier = Modifier.height(32.dp))
 
         OutlinedTextField(
@@ -57,11 +80,23 @@ fun LoginScreen(navController: NavHostController) {
             onClick = {
                 if (auth == null) return@Button
                 if (email.isNotEmpty() && password.isNotEmpty()) {
-                    auth.signInWithEmailAndPassword(email, password)
+                    auth.signInWithEmailAndPassword(email.trim(), password)
                         .addOnCompleteListener { task ->
                             if (task.isSuccessful) {
-                                navController.navigate("ligand_list") {
-                                    popUpTo("login") { inclusive = true }
+                                val user = auth.currentUser
+                                user?.reload()?.addOnCompleteListener { _ ->
+                                    if (user.isEmailVerified) {
+                                        navController.navigate("ligand_list") {
+                                            popUpTo("login") { inclusive = true }
+                                        }
+                                    } else {
+                                        auth.signOut()
+                                        Toast.makeText(
+                                            context,
+                                            "Account is not confirmed. Please check your email and click the verification link.",
+                                            Toast.LENGTH_LONG
+                                        ).show()
+                                    }
                                 }
                             } else {
                                 Toast.makeText(context, "Login failed: ${task.exception?.message}", Toast.LENGTH_SHORT).show()
@@ -76,56 +111,56 @@ fun LoginScreen(navController: NavHostController) {
             Text("Login with Firebase")
         }
 
-        TextButton(onClick = {
-            if (auth == null) return@TextButton
-            if (email.isNotEmpty() && password.isNotEmpty()) {
-                auth.createUserWithEmailAndPassword(email, password)
-                    .addOnCompleteListener { task ->
-                        if (task.isSuccessful) {
-                            Toast.makeText(context, "Account created! You can now login.", Toast.LENGTH_SHORT).show()
-                        } else {
-                            Toast.makeText(context, "Creation failed: ${task.exception?.message}", Toast.LENGTH_SHORT).show()
-                        }
-                    }
-            } else {
-                Toast.makeText(context, "Please fill in email and password to create an account", Toast.LENGTH_SHORT).show()
+        TextButton(
+	        onClick = {
+                focusManager.clearFocus()
+                navController.navigate("create_account")
             }
-        }) {
-            Text("Create Account")
+		) {
+            Text("Don't have an account? Create a new one!")
         }
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        Button(
-            onClick = {
-	            navController.navigate("ligand_list") {
-		            popUpTo("login") { inclusive = true }
-	            }
-//	            if (isEmulator()) {
-//                } else {
-//                    showBiometricPrompt(context as FragmentActivity) { success ->
-//                        if (success) {
-//                            navController.navigate("ligand_list") {
-//                                popUpTo("login") { inclusive = true }
-//                            }
-//                        } else {
-//                            Toast.makeText(context, "Biometric authentication failed", Toast.LENGTH_SHORT).show()
-//                        }
-//                    }
-//                }
-            },
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Text("Login with Biometrics")
-        }
+	    if (isBiometricAvailable)
+	    {
+	        Button(
+	            onClick = {
+		            showBiometricPrompt(context as FragmentActivity) { success ->
+			            if (success) {
+				            navController.navigate("ligand_list") {
+					            popUpTo("login") { inclusive = true }
+				            }
+			            } else {
+				            Toast.makeText(context, "Biometric authentication failed", Toast.LENGTH_SHORT).show()
+			            }
+		            }
+	            },
+	            modifier = Modifier.fillMaxWidth()
+	        ) {
+	            Text("Login with Biometrics")
+	        }
+	    }
 
-        Spacer(modifier = Modifier.height(32.dp))
-        
-        Text(
-            text = "What is Firebase?\nFirebase is a Google platform that provides backend services like Authentication, Database, and more, so developers don't have to manage servers.",
-            style = MaterialTheme.typography.bodySmall,
-            modifier = Modifier.padding(16.dp)
-        )
+	    if (isEmulator() || com.swiftyprotein.config.DebugConfig.ENABLE_DEBUG_BYPASS)
+	    {
+		    if (isBiometricAvailable) {
+			    Spacer(modifier = Modifier.height(8.dp))
+		    }
+		    Button(
+			    onClick = {
+				    navController.navigate("ligand_list") {
+					    popUpTo("login") { inclusive = true }
+				    }
+	            },
+			    modifier = Modifier.fillMaxWidth()
+			) {
+				Text("Enter without biometrics")
+		    }
+	    }
+	    // What is Firebase?
+	    // Firebase is a Google platform that provides backend services like Authentication, Database, and more,
+	    // so developers don't have to manage servers.
     }
 }
 
@@ -181,8 +216,31 @@ fun showBiometricPrompt(
     val promptInfo = BiometricPrompt.PromptInfo.Builder()
         .setTitle("Biometric Login")
         .setSubtitle("Log in using your biometric credential")
-        .setNegativeButtonText("Cancel")
+        .setAllowedAuthenticators(BiometricManager.Authenticators.BIOMETRIC_STRONG or BiometricManager.Authenticators.DEVICE_CREDENTIAL)
         .build()
 
     biometricPrompt.authenticate(promptInfo)
+}
+
+fun checkIfBiometricsAvailable(context: Context): Boolean {
+	return try {
+		val biometricManager = BiometricManager.from(context)
+		val authenticators = BiometricManager.Authenticators.BIOMETRIC_STRONG or BiometricManager.Authenticators.DEVICE_CREDENTIAL
+		val status = biometricManager.canAuthenticate(authenticators)
+
+		if (status == BiometricManager.BIOMETRIC_SUCCESS) {
+			true
+		} else {
+			val errorMessage = when (status) {
+				BiometricManager.BIOMETRIC_ERROR_NO_HARDWARE -> "No biometric hardware found"
+				BiometricManager.BIOMETRIC_ERROR_HW_UNAVAILABLE -> "Biometric hardware is currently unavailable"
+				BiometricManager.BIOMETRIC_ERROR_NONE_ENROLLED -> "Biometric not activated. Please enroll it in the device settings"
+				else -> "Biometric error, please use email/password"
+			}
+			Toast.makeText(context, errorMessage, Toast.LENGTH_LONG).show()
+			false
+		}
+	} catch (_: Throwable) {
+		false
+	}
 }

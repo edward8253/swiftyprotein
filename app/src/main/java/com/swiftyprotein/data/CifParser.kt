@@ -8,6 +8,9 @@ class CifParser {
         val lines = cifContent.lines()
         val atomIdToIndex = mutableMapOf<String, Int>()
         
+        // Single field storage for non-loop data
+        val singleFields = mutableMapOf<String, String>()
+        
         var inAtomLoop = false
         var inBondLoop = false
         
@@ -16,6 +19,16 @@ class CifParser {
 
         lines.forEach { line ->
             val trimmed = line.trim()
+            
+            // Handle single fields
+            if (trimmed.startsWith("_") && !inLoopHeaders && !inAtomLoop && !inBondLoop) {
+                val parts = splitCifLine(trimmed)
+                if (parts.size >= 2) {
+                    singleFields[parts[0]] = parts.drop(1).joinToString(" ").replace("\"", "").replace("'", "")
+                }
+                return@forEach
+            }
+
             if (trimmed.startsWith("loop_")) {
                 inAtomLoop = false
                 inBondLoop = false
@@ -76,6 +89,19 @@ class CifParser {
                         }
                     }
                 }
+            }
+        }
+        
+        // If no atoms found in loops, try to find a single atom defined by fields
+        if (atoms.isEmpty()) {
+            val element = singleFields["_chem_comp_atom.type_symbol"]
+            val x = singleFields["_chem_comp_atom.model_Cartn_x"]?.toFloatOrNull()
+            val y = singleFields["_chem_comp_atom.model_Cartn_y"]?.toFloatOrNull()
+            val z = singleFields["_chem_comp_atom.model_Cartn_z"]?.toFloatOrNull()
+            val id = singleFields["_chem_comp_atom.atom_id"] ?: "UNK"
+            
+            if (element != null && x != null && y != null && z != null) {
+                atoms.add(Atom(0, element, x, y, z, id, ""))
             }
         }
         

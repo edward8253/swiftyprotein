@@ -42,10 +42,14 @@ fun LigandDetailScreen(navController: NavHostController, ligand: String) {
     // Load CIF data
     LaunchedEffect(ligand) {
         try {
-            val file = File(context.filesDir, "$ligand.cif")
+            val cacheFile = File(context.cacheDir, "$ligand.cif")
+            val legacyFile = File(context.filesDir, "$ligand.cif")
+            val file = if (cacheFile.exists()) cacheFile else legacyFile
+
             if (file.exists()) {
                 val content = file.readText()
                 val (atoms, bonds) = CifParser().parse(content)
+                renderer.resetState()
                 renderer.atoms = atoms
                 renderer.bonds = bonds
             }
@@ -96,6 +100,14 @@ fun LigandDetailScreen(navController: NavHostController, ligand: String) {
                         viewHeight = it.size.height
                     }
                     .pointerInput(Unit) {
+                        detectTapGestures(
+                            onTap = { offset ->
+                                val atom = renderer.pickAtom(offset.x, offset.y, viewWidth, viewHeight)
+                                selectedAtom = atom
+                            }
+                        )
+                    }
+                    .pointerInput(Unit) {
                         detectTransformGestures { _, pan, zoom, _ ->
                             renderer.rotationY += pan.x / 5f
                             renderer.rotationX += pan.y / 5f
@@ -106,19 +118,6 @@ fun LigandDetailScreen(navController: NavHostController, ligand: String) {
                     }
             )
             
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .pointerInput(Unit) {
-                        detectTapGestures(
-                            onTap = { offset ->
-                                val atom = renderer.pickAtom(offset.x, offset.y, viewWidth, viewHeight)
-                                selectedAtom = atom
-                            }
-                        )
-                    }
-            )
-
             // Tooltip
             selectedAtom?.let { atom ->
                 Card(
