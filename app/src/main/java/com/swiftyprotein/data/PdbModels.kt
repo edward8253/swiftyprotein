@@ -2,6 +2,7 @@ package com.swiftyprotein.data
 
 import androidx.compose.ui.graphics.Color
 
+// Represents a single atom with its 3D coordinates, element type, and name
 data class Atom(
     val id: Int,
     val element: String,
@@ -12,12 +13,15 @@ data class Atom(
     val residueName: String = ""
 )
 
+// Represents a bond connecting two atoms by their index IDs
 data class Bond(
     val atom1Id: Int,
     val atom2Id: Int
 )
 
+// CPK color mapping and atomic radius helper for drawing 3D elements
 object CpkColors {
+    // Map of element symbols to their CPK colors
     private val colorMap = mapOf(
         "H" to Color(0xFFFFFFFF),
         "C" to Color(0xFF808080),
@@ -50,7 +54,32 @@ object CpkColors {
         "FE" to Color(0xFFFFA500)
     )
 
+    // Map of element symbols to their atomic sphere sizes
+    private val radiusMap = mapOf(
+        "H" to 0.25f,
+        "C" to 0.38f,
+        "N" to 0.36f,
+        "O" to 0.34f,
+        "F" to 0.32f,
+        "CL" to 0.48f,
+        "BR" to 0.52f,
+        "I" to 0.56f,
+        "P" to 0.48f,
+        "S" to 0.50f,
+        "FE" to 0.58f,
+        "MG" to 0.52f,
+        "CA" to 0.55f,
+        "ZN" to 0.50f,
+        "CU" to 0.50f
+    )
+
+    // Get the color for a given chemical element or default to pink
     fun getColor(element: String): Color {
-        return colorMap[element.uppercase()] ?: Color(0xFFFF1493) // DeepPink for unknown
+        return colorMap[element.uppercase()] ?: Color(0xFFFF1493)
+    }
+
+    // Get the sphere scale size for a given chemical element
+    fun getRadius(element: String): Float {
+        return radiusMap[element.uppercase()] ?: 0.38f
     }
 }

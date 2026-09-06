@@ -43,8 +43,8 @@ class MainActivity : FragmentActivity() {
                     if (::navController.isInitialized) {
                         try {
                             val currentRoute = navController.currentDestination?.route
-                            // If we were on a protected screen, force return to the login page
-                            if (currentRoute != null && currentRoute != "splash" && currentRoute != "login") {
+                            // Allow splash, login, create_account, and reset_password without forcing login redirect
+                            if (currentRoute != null && currentRoute != "splash" && currentRoute != "login" && currentRoute != "create_account" && currentRoute != "reset_password") {
                                 navController.navigate("login") {
                                     popUpTo(0) { inclusive = true }
                                 }
@@ -73,6 +73,7 @@ fun AppNavigation(navController: NavHostController) {
         composable("splash") { SplashScreen(navController) }
         composable("login") { LoginScreen(navController) }
         composable("create_account") { CreateAccountScreen(navController) }
+        composable("reset_password") { ResetPasswordScreen(navController) }
         composable("ligand_list") { LigandListScreen(navController) }
         composable("ligand_detail/{ligand}") { backStackEntry ->
             val ligand = backStackEntry.arguments?.getString("ligand") ?: ""

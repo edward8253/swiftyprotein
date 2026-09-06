@@ -17,10 +17,12 @@ import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.rememberNavController
 import com.google.firebase.auth.FirebaseAuth
+import kotlinx.coroutines.delay
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -32,16 +34,25 @@ fun CreateAccountScreen(navController: NavHostController) {
 
     val context = LocalContext.current
     val focusManager = LocalFocusManager.current
+    val keyboardController = LocalSoftwareKeyboardController.current
     val isPreview = LocalInspectionMode.current
     val auth = if (isPreview) null else FirebaseAuth.getInstance()
+
+    // Automatically deselect text fields / hide soft keyboard when entering screen
+    LaunchedEffect(Unit) {
+        delay(100)
+        focusManager.clearFocus(force = true)
+        // keyboardController?.hide()
+    }
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Create New Account") },
+                title = { },
                 navigationIcon = {
                     IconButton(onClick = {
-                        focusManager.clearFocus()
+                        focusManager.clearFocus(force = true)
+                        // keyboardController?.hide()
                         navController.popBackStack()
                     }) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back to Login")
@@ -56,7 +67,8 @@ fun CreateAccountScreen(navController: NavHostController) {
                 .padding(innerPadding)
                 .pointerInput(Unit) {
                     detectTapGestures(onTap = {
-                        focusManager.clearFocus()
+                        focusManager.clearFocus(force = true)
+                        // keyboardController?.hide()
                     })
                 }
                 .padding(16.dp)

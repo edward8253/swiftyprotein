@@ -2,6 +2,7 @@ package com.swiftyprotein.ui.screens
 
 import android.os.Build.VERSION.SDK_INT
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
@@ -15,6 +16,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalInspectionMode
@@ -28,6 +30,7 @@ import coil.decode.GifDecoder
 import coil.decode.ImageDecoderDecoder
 import coil.request.ImageRequest
 import kotlinx.coroutines.delay
+import kotlin.time.Duration.Companion.milliseconds
 
 @Composable
 fun SplashScreen(navController: NavHostController) {
@@ -35,7 +38,7 @@ fun SplashScreen(navController: NavHostController) {
     val isPreview = LocalInspectionMode.current
 
     LaunchedEffect(Unit) {
-        delay(1800)
+        delay(1500.milliseconds)
         navController.navigate("login") {
             popUpTo("splash") { inclusive = true }
         }
@@ -64,7 +67,7 @@ fun SplashScreen(navController: NavHostController) {
                 Icon(
                     imageVector = Icons.Default.Hub,
                     contentDescription = "Molecule Logo",
-                    modifier = Modifier.size(120.dp),
+                    modifier = Modifier.size(150.dp),
                     tint = MaterialTheme.colorScheme.primary
                 )
             } else {
@@ -77,10 +80,12 @@ fun SplashScreen(navController: NavHostController) {
                         imageLoader = imageLoader
                     ),
                     contentDescription = "Splash GIF",
-                    contentScale = ContentScale.Crop, // Crops to fill the circular shape
+                    contentScale = ContentScale.Crop,
                     modifier = Modifier
-                        .size(150.dp)
-                        .clip(CircleShape) // Makes the GIF image container round
+                        .size(160.dp)
+                        .clip(CircleShape)
+                        .background(MaterialTheme.colorScheme.surface, CircleShape)
+                        .scale(1.25f) // Zooms in past the outer black border of the GIF
                 )
             }
 

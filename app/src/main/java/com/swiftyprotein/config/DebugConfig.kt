@@ -14,5 +14,5 @@ object DebugConfig {
      * - `BuildConfig.DEBUG`: Automatically ON in Debug builds and OFF in Release builds.
      * - `false`: Always OFF.
      */
-    val ENABLE_DEBUG_BYPASS: Boolean = BuildConfig.DEBUG
+    val ENABLE_DEBUG_BYPASS: Boolean = false
 }

@@ -28,10 +28,19 @@ import kotlinx.coroutines.withContext
 import java.net.HttpURLConnection
 import java.net.URL
 
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import kotlinx.coroutines.delay
+import kotlin.time.Duration.Companion.milliseconds
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LigandListScreen(navController: NavHostController) {
     val context = LocalContext.current
+    val focusManager = LocalFocusManager.current
+    val keyboardController = LocalSoftwareKeyboardController.current
     val scope = rememberCoroutineScope()
     
     var searchQuery by remember { mutableStateOf("") }
@@ -40,25 +49,30 @@ fun LigandListScreen(navController: NavHostController) {
     var menuExpanded by remember { mutableStateOf(false) }
     val isPreview = LocalInspectionMode.current
 
-    // Pressing back on LigandList logs out and returns to Login screen
+    // Pressing back on LigandList logs out and returns to the login screen
     BackHandler {
         if (!isPreview) {
             try {
                 FirebaseAuth.getInstance().signOut()
             } catch (_: Exception) {}
         }
+        focusManager.clearFocus(force = true)
+        // keyboardController?.hide()
         navController.navigate("login") {
             popUpTo(0) { inclusive = true }
         }
     }
 
-    // Load ligands once
+    // Clear any active focus so the search label / soft keyboard does not activate automatically
     LaunchedEffect(Unit) {
-        if (isPreview) {
-            ligands = listOf("HEM", "ATP", "GLA", "GLC")
-        } else {
-            ligands = loadLigands(context)
-        }
+        delay(200.milliseconds)
+        focusManager.clearFocus(force = true)
+	    keyboardController?.hide()
+	    ligands = if (isPreview) {
+		    listOf("HEM", "ATP", "GLA", "GLC")
+	    } else {
+		    loadLigands(context)
+	    }
     }
 
     val filteredLigands = ligands.filter { it.contains(searchQuery, ignoreCase = true) }
@@ -79,6 +93,7 @@ fun LigandListScreen(navController: NavHostController) {
                             text = { Text("Logout") },
                             onClick = {
                                 menuExpanded = false
+                                focusManager.clearFocus()
                                 FirebaseAuth.getInstance().signOut()
                                 navController.navigate("login") {
                                     popUpTo(0)
@@ -91,7 +106,16 @@ fun LigandListScreen(navController: NavHostController) {
         }
     ) { innerPadding ->
         Box(modifier = Modifier.fillMaxSize().padding(innerPadding)) {
-            Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .pointerInput(Unit) {
+                        detectTapGestures(onTap = {
+                            focusManager.clearFocus()
+                        })
+                    }
+                    .padding(16.dp)
+            ) {
                 OutlinedTextField(
                     value = searchQuery,
                     onValueChange = { searchQuery = it },
@@ -136,7 +160,7 @@ fun loadLigands(context: Context): List<String> {
             .bufferedReader()
             .readLines()
             .filter { it.isNotBlank() }
-    } catch (e: Exception) {
+    } catch (_: Exception) {
         emptyList()
     }
 }
@@ -176,7 +200,7 @@ suspend fun downloadCif(context: Context, ligand: String): Boolean {
                     false
                 }
             }
-        } catch (e: Exception) {
+        } catch (_: Exception) {
             val localFile = if (cacheFile.exists() && cacheFile.length() > 0) cacheFile
             else if (legacyFile.exists() && legacyFile.length() > 0) legacyFile
             else null

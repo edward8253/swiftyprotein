@@ -24,18 +24,25 @@ import androidx.navigation.NavHostController
 import androidx.navigation.compose.rememberNavController
 import com.google.firebase.auth.FirebaseAuth
 
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import kotlinx.coroutines.delay
+import kotlin.time.Duration.Companion.milliseconds
+
 @Composable
 fun LoginScreen(navController: NavHostController) {
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     val context = LocalContext.current
     val focusManager = LocalFocusManager.current
+    val keyboardController = LocalSoftwareKeyboardController.current
     val isPreview = LocalInspectionMode.current
     val auth = if (isPreview) null else FirebaseAuth.getInstance()
 
-    // Automatically deselect text fields / hide soft keyboard when entering screen
+    // Delay slightly to override Compose's default initial focus assignment and hide soft keyboard
     LaunchedEffect(Unit) {
-        focusManager.clearFocus()
+        delay(200.milliseconds)
+        focusManager.clearFocus(force = true)
+	    keyboardController?.hide()
     }
 
     // rememberSaveable is used to preserve the result across recreation of the activity
@@ -49,7 +56,8 @@ fun LoginScreen(navController: NavHostController) {
             .fillMaxSize()
             .pointerInput(Unit) {
                 detectTapGestures(onTap = {
-                    focusManager.clearFocus()
+                    focusManager.clearFocus(force = true)
+                    // keyboardController?.hide()
                 })
             }
             .padding(16.dp),
@@ -63,9 +71,28 @@ fun LoginScreen(navController: NavHostController) {
             value = email,
             onValueChange = { email = it },
             label = { Text("Email") },
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier.fillMaxWidth(),
         )
         Spacer(modifier = Modifier.height(8.dp))
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.End
+        ) {
+            TextButton(
+                onClick = {
+                    focusManager.clearFocus()
+                    navController.navigate("reset_password")
+                },
+                contentPadding = PaddingValues(0.dp)
+            ) {
+                Text(
+                    text = "Forgot Password?",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.primary
+                )
+            }
+        }
 
         OutlinedTextField(
             value = password,
@@ -86,6 +113,7 @@ fun LoginScreen(navController: NavHostController) {
                                 val user = auth.currentUser
                                 user?.reload()?.addOnCompleteListener { _ ->
                                     if (user.isEmailVerified) {
+                                        focusManager.clearFocus()
                                         navController.navigate("ligand_list") {
                                             popUpTo("login") { inclusive = true }
                                         }
@@ -120,7 +148,7 @@ fun LoginScreen(navController: NavHostController) {
             Text("Don't have an account? Create a new one!")
         }
 
-        Spacer(modifier = Modifier.height(16.dp))
+	    Spacer(modifier = Modifier.height(16.dp))
 
 	    if (isBiometricAvailable)
 	    {
@@ -128,6 +156,7 @@ fun LoginScreen(navController: NavHostController) {
 	            onClick = {
 		            showBiometricPrompt(context as FragmentActivity) { success ->
 			            if (success) {
+				            focusManager.clearFocus()
 				            navController.navigate("ligand_list") {
 					            popUpTo("login") { inclusive = true }
 				            }
@@ -149,6 +178,7 @@ fun LoginScreen(navController: NavHostController) {
 		    }
 		    Button(
 			    onClick = {
+				    focusManager.clearFocus()
 				    navController.navigate("ligand_list") {
 					    popUpTo("login") { inclusive = true }
 				    }

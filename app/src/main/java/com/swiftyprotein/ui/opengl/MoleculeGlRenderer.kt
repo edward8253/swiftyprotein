@@ -1,6 +1,7 @@
 package com.swiftyprotein.ui.opengl
 
 import android.content.Context
+import android.graphics.Bitmap
 import android.opengl.GLES20
 import android.opengl.GLSurfaceView
 import android.opengl.Matrix
@@ -15,32 +16,41 @@ import javax.microedition.khronos.egl.EGLConfig
 import javax.microedition.khronos.opengles.GL10
 import kotlin.math.*
 
+// OpenGL ES 2.0 renderer that draws 3D molecule spheres and bond cylinders
 class MoleculeGlRenderer(val context: Context) : GLSurfaceView.Renderer {
 
+    // Transformation matrices for 3D projection, view camera, and model placement
     private val mProjectionMatrix = FloatArray(16)
     private val mViewMatrix = FloatArray(16)
     private val mModelMatrix = FloatArray(16)
     private val mMVPMatrix = FloatArray(16)
 
-    // Gesture state
+    // Touch gesture state variables for rotation, zoom, and panning
     var rotationX = 0f
     var rotationY = 0f
-    var zoom = 20f
+    var zoom = 15f
     var panX = 0f
     var panY = 0f
 
+    // Center coordinates of the molecule
     private var centerX = 0f
     private var centerY = 0f
     private var centerZ = 0f
 
+    // Screen viewport dimensions
+    private var viewportWidth = 1024
+    private var viewportHeight = 1024
+
+    // Reset touch interactions and recalculate camera zoom
     fun resetState() {
         rotationX = 0f
         rotationY = 0f
         panX = 0f
         panY = 0f
-        zoom = 20f
+        calculateCenter()
     }
 
+    // OpenGL shader program handles
     private var mProgram = 0
     private var mPositionHandle = 0
     private var mNormalHandle = 0
@@ -49,6 +59,7 @@ class MoleculeGlRenderer(val context: Context) : GLSurfaceView.Renderer {
     private var mColorHandle = 0
     private var mLightPosHandle = 0
 
+    // Vertex, normal, and index buffers for 3D sphere and cylinder geometry
     private lateinit var sphereVertices: FloatBuffer
     private lateinit var sphereNormals: FloatBuffer
     private lateinit var sphereIndices: ShortBuffer
@@ -59,28 +70,32 @@ class MoleculeGlRenderer(val context: Context) : GLSurfaceView.Renderer {
     private lateinit var cylinderIndices: ShortBuffer
     private var cylinderIndexCount = 0
 
+    // List of atoms in the molecule
     var atoms = listOf<Atom>()
         set(value) {
             field = value
             calculateCenter()
         }
+    
+    // List of bonds in the molecule
     var bonds = listOf<Bond>()
 
+    // Find the center point and bounding box size of the molecule to set camera position
     private fun calculateCenter() {
         if (atoms.isEmpty()) {
             centerX = 0f
             centerY = 0f
             centerZ = 0f
-            zoom = 20f
+            zoom = 15f
             return
         }
         
         var minX = Float.MAX_VALUE
-        var maxX = Float.MIN_VALUE
+        var maxX = -Float.MAX_VALUE
         var minY = Float.MAX_VALUE
-        var maxY = Float.MIN_VALUE
+        var maxY = -Float.MAX_VALUE
         var minZ = Float.MAX_VALUE
-        var maxZ = Float.MIN_VALUE
+        var maxZ = -Float.MAX_VALUE
 
         atoms.forEach {
             if (it.x < minX) minX = it.x
@@ -91,6 +106,7 @@ class MoleculeGlRenderer(val context: Context) : GLSurfaceView.Renderer {
             if (it.z > maxZ) maxZ = it.z
         }
 
+        // Midpoint coordinates of the molecule
         centerX = (minX + maxX) / 2f
         centerY = (minY + maxY) / 2f
         centerZ = (minZ + maxZ) / 2f
@@ -98,16 +114,16 @@ class MoleculeGlRenderer(val context: Context) : GLSurfaceView.Renderer {
         val deltaX = maxX - minX
         val deltaY = maxY - minY
         val deltaZ = maxZ - minZ
-        val maxDim = max(deltaX, max(deltaY, deltaZ))
+        val maxDim = max(deltaX, max(deltaY, max(deltaZ, 1.0f)))
         
-        // Adjust zoom based on molecule size. 
-        // frustum is -1..1, so we want the molecule to fit comfortably.
-        zoom = max(5f, maxDim * 2f) 
+        // Dynamic camera zoom so the molecule comfortably fills the screen
+        zoom = max(4f, maxDim * 1.3f)
     }
     
-    // Callback for screenshot
-    var screenshotCallback: ((android.graphics.Bitmap) -> Unit)? = null
+    // Callback for screenshot capture
+    var screenshotCallback: ((Bitmap) -> Unit)? = null
 
+    // Vertex shader code for computing 3D positions and normals
     private val vertexShaderCode = """
         uniform mat4 uMVPMatrix;
         uniform mat4 uMVMatrix;
@@ -123,6 +139,7 @@ class MoleculeGlRenderer(val context: Context) : GLSurfaceView.Renderer {
         }
     """.trimIndent()
 
+    // Fragment shader code for ambient and diffuse lighting
     private val fragmentShaderCode = """
         precision mediump float;
         uniform vec4 vColor;
@@ -142,6 +159,7 @@ class MoleculeGlRenderer(val context: Context) : GLSurfaceView.Renderer {
         }
     """.trimIndent()
 
+    // Initialize OpenGL state, compile shaders, and build sphere/cylinder geometry
     override fun onSurfaceCreated(gl: GL10?, config: EGLConfig?) {
         GLES20.glClearColor(0.1f, 0.1f, 0.1f, 1.0f)
         GLES20.glEnable(GLES20.GL_DEPTH_TEST)
@@ -166,15 +184,20 @@ class MoleculeGlRenderer(val context: Context) : GLSurfaceView.Renderer {
         setupCylinderGeometry()
     }
 
+    // Update aspect ratio and projection matrix when screen size changes
     override fun onSurfaceChanged(gl: GL10?, width: Int, height: Int) {
+        viewportWidth = width
+        viewportHeight = height
         GLES20.glViewport(0, 0, width, height)
         val ratio: Float = width.toFloat() / height.toFloat()
         Matrix.frustumM(mProjectionMatrix, 0, -ratio, ratio, -1f, 1f, 1f, 1000f)
     }
 
+    // Render loop that updates camera view matrix and draws atoms and bonds
     override fun onDrawFrame(gl: GL10?) {
         GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT or GLES20.GL_DEPTH_BUFFER_BIT)
 
+        // Set camera position and apply user rotation and pan
         Matrix.setLookAtM(mViewMatrix, 0, 0f, 0f, zoom, 0f, 0f, 0f, 0f, 1.0f, 0f)
         Matrix.translateM(mViewMatrix, 0, panX, panY, 0f)
         Matrix.rotateM(mViewMatrix, 0, rotationX, 1.0f, 0f, 0f)
@@ -183,17 +206,17 @@ class MoleculeGlRenderer(val context: Context) : GLSurfaceView.Renderer {
         GLES20.glUseProgram(mProgram)
         GLES20.glUniform3f(mLightPosHandle, 5f, 5f, 5f)
 
-        // Draw atoms
+        // Draw atom spheres
         atoms.forEach { atom ->
             drawAtom(atom)
         }
 
-        // Draw bonds
+        // Draw bond cylinders
         bonds.forEach { bond ->
             drawBond(bond)
         }
         
-        // Handle screenshot
+        // Take screenshot if requested
         screenshotCallback?.let { callback ->
             val bitmap = captureScreenshot()
             callback(bitmap)
@@ -201,10 +224,14 @@ class MoleculeGlRenderer(val context: Context) : GLSurfaceView.Renderer {
         }
     }
 
+    // Draw a single atom sphere at its 3D position with its CPK color and atomic radius
     private fun drawAtom(atom: Atom) {
         Matrix.setIdentityM(mModelMatrix, 0)
         Matrix.translateM(mModelMatrix, 0, atom.x - centerX, atom.y - centerY, atom.z - centerZ)
-        Matrix.scaleM(mModelMatrix, 0, 0.4f, 0.4f, 0.4f) // Adjust sphere size
+
+        // Scale sphere according to element's atomic radius
+        val radius = CpkColors.getRadius(atom.element)
+        Matrix.scaleM(mModelMatrix, 0, radius, radius, radius)
 
         val mvMatrix = FloatArray(16)
         Matrix.multiplyMM(mvMatrix, 0, mViewMatrix, 0, mModelMatrix, 0)
@@ -225,6 +252,7 @@ class MoleculeGlRenderer(val context: Context) : GLSurfaceView.Renderer {
         GLES20.glDrawElements(GLES20.GL_TRIANGLES, sphereIndexCount, GLES20.GL_UNSIGNED_SHORT, sphereIndices)
     }
 
+    // Draw a cylinder connecting two atoms
     private fun drawBond(bond: Bond) {
         val a1 = atoms.getOrNull(bond.atom1Id) ?: return
         val a2 = atoms.getOrNull(bond.atom2Id) ?: return
@@ -234,15 +262,16 @@ class MoleculeGlRenderer(val context: Context) : GLSurfaceView.Renderer {
         val dz = a2.z - a1.z
         val distance = sqrt(dx * dx + dy * dy + dz * dz)
 
+        // Skip zero distance overlapping atoms
+        if (distance < 0.001f) return
+
         Matrix.setIdentityM(mModelMatrix, 0)
         Matrix.translateM(mModelMatrix, 0, a1.x - centerX, a1.y - centerY, a1.z - centerZ)
 
-        // Rotation to align with (dx, dy, dz)
-        // Cylinder starts at (0,0,0) towards (0,0,1)
+        // Rotate cylinder to point from atom 1 to atom 2
         val v1 = floatArrayOf(0f, 0f, 1f)
         val v2 = floatArrayOf(dx / distance, dy / distance, dz / distance)
         
-        // Cross product for rotation axis
         val axis = floatArrayOf(
             v1[1] * v2[2] - v1[2] * v2[1],
             v1[2] * v2[0] - v1[0] * v2[2],
@@ -256,7 +285,7 @@ class MoleculeGlRenderer(val context: Context) : GLSurfaceView.Renderer {
             Matrix.rotateM(mModelMatrix, 0, 180f, 0f, 1f, 0f)
         }
 
-        Matrix.scaleM(mModelMatrix, 0, 0.15f, 0.15f, distance)
+        Matrix.scaleM(mModelMatrix, 0, 0.12f, 0.12f, distance)
 
         val mvMatrix = FloatArray(16)
         Matrix.multiplyMM(mvMatrix, 0, mViewMatrix, 0, mModelMatrix, 0)
@@ -264,7 +293,7 @@ class MoleculeGlRenderer(val context: Context) : GLSurfaceView.Renderer {
 
         GLES20.glUniformMatrix4fv(mMVPMatrixHandle, 1, false, mMVPMatrix, 0)
         GLES20.glUniformMatrix4fv(mMVMatrixHandle, 1, false, mvMatrix, 0)
-        GLES20.glUniform4f(mColorHandle, 0.7f, 0.7f, 0.7f, 1f) // Grey bonds
+        GLES20.glUniform4f(mColorHandle, 0.7f, 0.7f, 0.7f, 1f)
 
         GLES20.glEnableVertexAttribArray(mPositionHandle)
         GLES20.glVertexAttribPointer(mPositionHandle, 3, GLES20.GL_FLOAT, false, 0, cylinderVertices)
@@ -275,6 +304,7 @@ class MoleculeGlRenderer(val context: Context) : GLSurfaceView.Renderer {
         GLES20.glDrawElements(GLES20.GL_TRIANGLES, cylinderIndexCount, GLES20.GL_UNSIGNED_SHORT, cylinderIndices)
     }
 
+    // Generate vertices, normals, and indices for a 3D sphere
     private fun setupSphereGeometry() {
         val segments = 16
         val vertexList = mutableListOf<Float>()
@@ -316,6 +346,7 @@ class MoleculeGlRenderer(val context: Context) : GLSurfaceView.Renderer {
         sphereIndexCount = indexList.size
     }
 
+    // Generate vertices, normals, and indices for a 3D cylinder
     private fun setupCylinderGeometry() {
         val segments = 12
         val vertexList = mutableListOf<Float>()
@@ -350,6 +381,7 @@ class MoleculeGlRenderer(val context: Context) : GLSurfaceView.Renderer {
         cylinderIndexCount = indexList.size
     }
 
+    // Compile an OpenGL vertex or fragment shader
     private fun loadShader(type: Int, shaderCode: String): Int {
         return GLES20.glCreateShader(type).also { shader ->
             GLES20.glShaderSource(shader, shaderCode)
@@ -357,6 +389,7 @@ class MoleculeGlRenderer(val context: Context) : GLSurfaceView.Renderer {
         }
     }
 
+    // Helper to create a direct float buffer for OpenGL
     private fun createFloatBuffer(array: FloatArray): FloatBuffer {
         return ByteBuffer.allocateDirect(array.size * 4).order(ByteOrder.nativeOrder()).asFloatBuffer().apply {
             put(array)
@@ -364,6 +397,7 @@ class MoleculeGlRenderer(val context: Context) : GLSurfaceView.Renderer {
         }
     }
 
+    // Helper to create a direct short buffer for OpenGL
     private fun createShortBuffer(array: ShortArray): ShortBuffer {
         return ByteBuffer.allocateDirect(array.size * 2).order(ByteOrder.nativeOrder()).asShortBuffer().apply {
             put(array)
@@ -371,31 +405,25 @@ class MoleculeGlRenderer(val context: Context) : GLSurfaceView.Renderer {
         }
     }
     
-    private fun captureScreenshot(): android.graphics.Bitmap {
-        val w = 1024 // Or use current view width
-        val h = 1024 // Or use current view height
+    // Read the current OpenGL frame pixels to capture a full screen screenshot
+    private fun captureScreenshot(): Bitmap {
+        val w = if (viewportWidth > 0) viewportWidth else 1024
+        val h = if (viewportHeight > 0) viewportHeight else 1024
         val pixelBuffer = ByteBuffer.allocateDirect(w * h * 4)
         GLES20.glReadPixels(0, 0, w, h, GLES20.GL_RGBA, GLES20.GL_UNSIGNED_BYTE, pixelBuffer)
         
-        val bitmap = android.graphics.Bitmap.createBitmap(w, h, android.graphics.Bitmap.Config.ARGB_8888)
+        val bitmap = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
         pixelBuffer.rewind()
         bitmap.copyPixelsFromBuffer(pixelBuffer)
         
-        // Vertical flip is needed as OpenGL coordinates start from bottom-left
+        // Flip image vertically because OpenGL coordinates start at bottom-left
         val matrix = android.graphics.Matrix()
         matrix.postScale(1f, -1f)
-        return android.graphics.Bitmap.createBitmap(bitmap, 0, 0, w, h, matrix, true)
+        return Bitmap.createBitmap(bitmap, 0, 0, w, h, matrix, true)
     }
 
+    // Perform raycasting to select an atom when the user taps on the screen
     fun pickAtom(screenX: Float, screenY: Float, width: Int, height: Int): Atom? {
-        // Simple ray-casting (simplified)
-        // Convert screen coordinates to world coordinates
-        // For each atom, check distance to the ray
-        
-        // For now, let's just return the closest atom to the center as a placeholder
-        // or implement a basic projection-based check.
-        
-        // Real implementation:
         val viewInv = FloatArray(16)
         val projInv = FloatArray(16)
         Matrix.invertM(viewInv, 0, mViewMatrix, 0)
@@ -407,8 +435,8 @@ class MoleculeGlRenderer(val context: Context) : GLSurfaceView.Renderer {
         val nearPoint = floatArrayOf(x, y, -1f, 1f)
         val farPoint = floatArrayOf(x, y, 1f, 1f)
         
-        val nearWorld = unproject(nearPoint, projInv, viewInv)
-        val farWorld = unproject(farPoint, projInv, viewInv)
+        val nearWorld = unProject(nearPoint, projInv, viewInv)
+        val farWorld = unProject(farPoint, projInv, viewInv)
         
         val rayDir = floatArrayOf(
             farWorld[0] - nearWorld[0],
@@ -416,6 +444,7 @@ class MoleculeGlRenderer(val context: Context) : GLSurfaceView.Renderer {
             farWorld[2] - nearWorld[2]
         )
         val rayLen = sqrt(rayDir[0] * rayDir[0] + rayDir[1] * rayDir[1] + rayDir[2] * rayDir[2])
+        if (rayLen < 0.00001f) return null
         rayDir[0] /= rayLen; rayDir[1] /= rayLen; rayDir[2] /= rayLen
         
         var closestAtom: Atom? = null
@@ -427,7 +456,8 @@ class MoleculeGlRenderer(val context: Context) : GLSurfaceView.Renderer {
             
             if (projection > 0) {
                 val distSq = (toAtom[0] * toAtom[0] + toAtom[1] * toAtom[1] + toAtom[2] * toAtom[2]) - (projection * projection)
-                if (distSq < 0.25f && distSq < minDistance) { // 0.5 radius squared
+                val radius = CpkColors.getRadius(atom.element)
+                if (distSq < (radius * radius) && distSq < minDistance) {
                     minDistance = distSq
                     closestAtom = atom
                 }
@@ -437,7 +467,8 @@ class MoleculeGlRenderer(val context: Context) : GLSurfaceView.Renderer {
         return closestAtom
     }
     
-    private fun unproject(point: FloatArray, projInv: FloatArray, viewInv: FloatArray): FloatArray {
+    // Un-project a screen normalized point back into 3D world space
+    private fun unProject(point: FloatArray, projInv: FloatArray, viewInv: FloatArray): FloatArray {
         val temp = FloatArray(4)
         Matrix.multiplyMV(temp, 0, projInv, 0, point, 0)
         temp[0] /= temp[3]; temp[1] /= temp[3]; temp[2] /= temp[3]; temp[3] = 1f
