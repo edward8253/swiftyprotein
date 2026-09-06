@@ -18,6 +18,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.swiftyprotein.ui.screens.*
 import com.swiftyprotein.ui.theme.SwiftyProteinTheme
+import java.io.File
 
 class MainActivity : FragmentActivity() {
     private lateinit var navController: NavHostController
@@ -25,6 +26,9 @@ class MainActivity : FragmentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+
+        // Clear cached .cif files automatically whenever a new app version/build is installed
+        clearCifCacheIfUpdated(this)
 
         val auth = FirebaseAuth.getInstance()
 
@@ -79,5 +83,28 @@ fun AppNavigation(navController: NavHostController) {
             val ligand = backStackEntry.arguments?.getString("ligand") ?: ""
             LigandDetailScreen(navController, ligand)
         }
+    }
+}
+
+private fun clearCifCacheIfUpdated(context: Context) {
+    try {
+        val prefs = context.getSharedPreferences("swifty_protein_prefs", Context.MODE_PRIVATE)
+        val currentVersionCode = BuildConfig.VERSION_CODE
+        val lastVersionCode = prefs.getInt("last_version_code", -1)
+
+        if (lastVersionCode != currentVersionCode) {
+            // Delete all cached .cif files on app version update
+            context.cacheDir.listFiles()?.forEach { file ->
+                if (file.name.endsWith(".cif")) file.delete()
+            }
+            context.filesDir.listFiles()?.forEach { file ->
+                if (file.name.endsWith(".cif")) file.delete()
+            }
+            File(context.cacheDir, "images").deleteRecursively()
+
+            prefs.edit().putInt("last_version_code", currentVersionCode).apply()
+        }
+    } catch (_: Exception) {
+        // Safe fallback
     }
 }

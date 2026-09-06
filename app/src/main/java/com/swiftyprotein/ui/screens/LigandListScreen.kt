@@ -66,7 +66,7 @@ fun LigandListScreen(navController: NavHostController) {
     // Clear any active focus so the search label / soft keyboard does not activate automatically
     LaunchedEffect(Unit) {
         delay(200.milliseconds)
-        focusManager.clearFocus(force = true)
+	    focusManager.clearFocus(force = true)
 	    keyboardController?.hide()
 	    ligands = if (isPreview) {
 		    listOf("HEM", "ATP", "GLA", "GLC")
@@ -195,7 +195,7 @@ suspend fun downloadCif(context: Context, ligand: String): Boolean {
                     true
                 } else {
                     withContext(Dispatchers.Main) {
-                        Toast.makeText(context, "Download failed: ${connection.responseCode}", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(context, "Download failed: ${connection.responseMessage}", Toast.LENGTH_SHORT).show()
                     }
                     false
                 }

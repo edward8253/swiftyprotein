@@ -1,6 +1,6 @@
 #!/bin/bash
 
-source .android-env
+source .env
 
 if [ "$#" -ne 1 ]; then
     echo "Usage: $0 <debug|release>"
